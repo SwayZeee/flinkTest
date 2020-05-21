@@ -1,0 +1,11 @@
+# IntelliJ specific
+/.idea/
+*.iml
+*.iws
+*.ipr
+
+# Maven specific
+/target/
+/log/
+
+# Project specific
