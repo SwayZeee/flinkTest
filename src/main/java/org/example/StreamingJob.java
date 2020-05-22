@@ -106,7 +106,7 @@ public class StreamingJob {
 
 			tableEnv.createTemporaryView("myTable", rabbitMQStream, "transactionID, id, fieldOne, fieldTwo, fieldThree, fieldFour, fieldFive, fieldSix, fieldSeven, fieldEight, fieldNine, number");
 
-			Table queryTable = tableEnv.sqlQuery("SELECT LastStringValue(transactionID), id, LastIntegerValue(fieldOne) AS fieldOne, LastDoubleValue(fieldTwo) AS fieldTwo, LastStringValue(fieldThree) as fieldThree FROM myTable WHERE number = 1 GROUP BY id");
+			Table queryTable = tableEnv.sqlQuery("SELECT LastStringValue(transactionID), id, LastIntegerValue(fieldOne) AS fieldOne, LastDoubleValue(fieldTwo) AS fieldTwo, LastStringValue(fieldThree) as fieldThree, LastIntegerValue(fieldFour) AS fieldFour, LastDoubleValue(fieldFive) AS fieldFive, LastStringValue(fieldSix) as fieldSix, LastIntegerValue(fieldSeven) AS fieldSeven, LastDoubleValue(fieldEight) AS fieldEight, LastStringValue(fieldNine) as fieldTNine FROM myTable WHERE number = 1 GROUP BY id");
 
 			// conversion of queryTable to a retractStream (true) = insert, (false) = delete
 			DataStream<Tuple2<Boolean, Row>> retractStream = tableEnv.toRetractStream(queryTable, Row.class);
@@ -126,11 +126,13 @@ public class StreamingJob {
 	public static class Mapper implements MapFunction<Tuple2<Boolean, Row>, String> {
 		@Override
 		public String map(Tuple2<Boolean, Row> booleanRowTuple2) {
-			try {
-				//rmqTockSender.sendMessage(booleanRowTuple2.f1.toString().substring(0, 36)+","+System.nanoTime());
-				rmqLatencySender.sendMessage("tock" + "," + 0 + "," + booleanRowTuple2.f1.toString().substring(0, 36) + "," + System.nanoTime());
-			} catch (IOException e) {
-				e.printStackTrace();
+			if (booleanRowTuple2.f0) {
+				try {
+					//rmqTockSender.sendMessage(booleanRowTuple2.f1.toString().substring(0, 36)+","+System.nanoTime());
+					rmqLatencySender.sendMessage("tock" + "," + 0 + "," + booleanRowTuple2.f1.toString().substring(0, 36) + "," + System.nanoTime());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 			return booleanRowTuple2.f1.toString();
 		}
