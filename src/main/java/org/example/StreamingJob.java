@@ -55,86 +55,83 @@ import java.util.concurrent.TimeoutException;
  * method, change the respective entry in the POM.xml file (simply search for 'mainClass').
  */
 public class StreamingJob {
-	private static RMQLatencySender rmqLatencySender;
+    private static RMQLatencySender rmqLatencySender;
 
-	static {
-		try {
-			rmqLatencySender = new RMQLatencySender();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (TimeoutException e) {
-			e.printStackTrace();
-		}
-	}
+    static {
+        try {
+            rmqLatencySender = new RMQLatencySender();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            e.printStackTrace();
+        }
+    }
 
-	private static final String EXCHANGE_NAME = "benchmark";
-	private static final String QUEUE_NAME = "flinkTest";
+    private static final String EXCHANGE_NAME = "benchmark";
+    private static final String QUEUE_NAME = "flinkTest";
 
-	public static void main(String[] args) {
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		EnvironmentSettings settings = EnvironmentSettings.newInstance().useBlinkPlanner().inStreamingMode().build();
-		StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env, settings);
+    public static void main(String[] args) {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        EnvironmentSettings settings = EnvironmentSettings.newInstance().useBlinkPlanner().inStreamingMode().build();
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env, settings);
 
-		// register User-Defined Aggregate Functions (UDAGGs)
-		tableEnv.registerFunction("LastIntegerValue", new LastIntegerValue());
-		tableEnv.registerFunction("LastDoubleValue", new LastDoubleValue());
-		tableEnv.registerFunction("LastStringValue", new LastStringValue());
+        // register User-Defined Aggregate Functions (UDAGGs)
+        tableEnv.registerFunction("LastIntegerValue", new LastIntegerValue());
+        tableEnv.registerFunction("LastDoubleValue", new LastDoubleValue());
+        tableEnv.registerFunction("LastStringValue", new LastStringValue());
 
-		final RMQConnectionConfig connectionConfig = new RMQConnectionConfig.Builder()
-				.setHost("localhost")
-				.setPort(5672)
-				.setVirtualHost("/")
-				.setUserName("guest")
-				.setPassword("guest")
-				.build();
+        final RMQConnectionConfig connectionConfig = new RMQConnectionConfig.Builder()
+                .setHost("localhost")
+                .setPort(5672)
+                .setVirtualHost("/")
+                .setUserName("guest")
+                .setPassword("guest")
+                .build();
 
-		try {
-			ConnectionFactory factory = connectionConfig.getConnectionFactory();
-			Connection connection = factory.newConnection();
-			Channel channel = connection.createChannel();
+        try {
+            ConnectionFactory factory = connectionConfig.getConnectionFactory();
+            Connection connection = factory.newConnection();
+            Channel channel = connection.createChannel();
 
-			channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
-			channel.queueDeclare(QUEUE_NAME, true, false, false, null);
-			channel.queueBind(QUEUE_NAME, EXCHANGE_NAME, "");
+            channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
+            channel.queueDeclare(QUEUE_NAME, true, false, false, null);
+            channel.queueBind(QUEUE_NAME, EXCHANGE_NAME, "");
 
-			final DataStreamSource<EventMessage> rabbitMQStream = env
-					.addSource(new RMQSource<>(
-							connectionConfig,
-							QUEUE_NAME,
-							true,
-							new EventMessageDeserializationSchema()));
+            final DataStreamSource<EventMessage> rabbitMQStream = env
+                    .addSource(new RMQSource<>(
+                            connectionConfig,
+                            QUEUE_NAME,
+                            true,
+                            new EventMessageDeserializationSchema()));
 
-			tableEnv.createTemporaryView("myTable", rabbitMQStream, "transactionID, id, fieldOne, fieldTwo, fieldThree, fieldFour, fieldFive, fieldSix, fieldSeven, fieldEight, fieldNine, number");
+            tableEnv.createTemporaryView("myTable", rabbitMQStream, "transactionID, id, fieldOne, fieldTwo, fieldThree, fieldFour, fieldFive, fieldSix, fieldSeven, fieldEight, fieldNine, number");
 
-			Table queryTable = tableEnv.sqlQuery("SELECT LastStringValue(transactionID), id, LastIntegerValue(fieldOne) AS fieldOne, LastDoubleValue(fieldTwo) AS fieldTwo, LastStringValue(fieldThree) as fieldThree, LastIntegerValue(fieldFour) AS fieldFour, LastDoubleValue(fieldFive) AS fieldFive, LastStringValue(fieldSix) as fieldSix, LastIntegerValue(fieldSeven) AS fieldSeven, LastDoubleValue(fieldEight) AS fieldEight, LastStringValue(fieldNine) as fieldTNine FROM myTable WHERE number = 1 GROUP BY id");
+            Table queryTable = tableEnv.sqlQuery("SELECT LastStringValue(transactionID), id, LastIntegerValue(fieldOne) AS fieldOne, LastDoubleValue(fieldTwo) AS fieldTwo, LastStringValue(fieldThree) as fieldThree, LastIntegerValue(fieldFour) AS fieldFour, LastDoubleValue(fieldFive) AS fieldFive, LastStringValue(fieldSix) as fieldSix, LastIntegerValue(fieldSeven) AS fieldSeven, LastDoubleValue(fieldEight) AS fieldEight, LastStringValue(fieldNine) as fieldTNine FROM myTable WHERE fieldOne = 1 GROUP BY id");
 
-			// conversion of queryTable to a retractStream (true) = insert, (false) = delete
-			DataStream<Tuple2<Boolean, Row>> retractStream = tableEnv.toRetractStream(queryTable, Row.class);
-			retractStream.map(new Mapper());
-			// retractStream.print();
+            // conversion of queryTable to a retractStream (true) = insert, (false) = delete
+            DataStream<Tuple2<Boolean, Row>> retractStream = tableEnv.toRetractStream(queryTable, Row.class);
+            retractStream.map(new Mapper());
+            // retractStream.print();
 
-			try {
-				env.execute("Test Job");
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
+            try {
+                env.execute("Test Job");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
-	public static class Mapper implements MapFunction<Tuple2<Boolean, Row>, String> {
-		@Override
-		public String map(Tuple2<Boolean, Row> booleanRowTuple2) {
-			if (booleanRowTuple2.f0) {
-				try {
-					//rmqTockSender.sendMessage(booleanRowTuple2.f1.toString().substring(0, 36)+","+System.nanoTime());
-					rmqLatencySender.sendMessage("tock" + "," + 0 + "," + booleanRowTuple2.f1.toString().substring(0, 36) + "," + System.nanoTime());
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-			return booleanRowTuple2.f1.toString();
-		}
-	}
+    public static class Mapper implements MapFunction<Tuple2<Boolean, Row>, String> {
+        @Override
+        public String map(Tuple2<Boolean, Row> booleanRowTuple2) {
+            try {
+                rmqLatencySender.sendMessage("tock" + "," + 0 + "," + booleanRowTuple2.f1.toString().substring(0, 36) + "," + System.nanoTime());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return booleanRowTuple2.f1.toString();
+        }
+    }
 }
