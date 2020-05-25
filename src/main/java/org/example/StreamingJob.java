@@ -127,8 +127,9 @@ public class StreamingJob {
     public static class Mapper implements MapFunction<Tuple2<Boolean, Row>, String> {
         @Override
         public String map(Tuple2<Boolean, Row> booleanRowTuple2) {
-            // booleanRowTupel2.f1 contains all selected fields in order divided by comma
-            rmqMessageSender.sendMessage(QUEUE_ID + "," + booleanRowTuple2.f1.toString());
+            // booleanRowTuple2.f0 contains a boolean indicating a insert (true) or delete (false)
+            // booleanRowTupll2.f1 contains all selected fields in order divided by comma
+            rmqMessageSender.sendMessage(booleanRowTuple2.f0 + "," + QUEUE_ID + "," + booleanRowTuple2.f1.toString());
             return booleanRowTuple2.f1.toString();
         }
     }
