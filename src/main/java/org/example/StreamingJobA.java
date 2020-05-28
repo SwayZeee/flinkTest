@@ -55,7 +55,7 @@ import java.util.concurrent.TimeoutException;
  * <p>If you change the name of the main class (with the public static void main(String[] args))
  * method, change the respective entry in the POM.xml file (simply search for 'mainClass').
  */
-public class StreamingJob {
+public class StreamingJobA {
     private static RMQMessageSender rmqMessageSender;
 
     static {
@@ -108,7 +108,7 @@ public class StreamingJob {
 
             tableEnv.createTemporaryView("myTable", rabbitMQStream, "transactionID, id, fieldOne, fieldTwo, fieldThree, fieldFour, fieldFive, fieldSix, fieldSeven, fieldEight, fieldNine, number");
 
-            Table queryTable = tableEnv.sqlQuery("SELECT LastStringValue(transactionID), id, LastIntegerValue(fieldOne) AS fieldOne, LastDoubleValue(fieldTwo) AS fieldTwo, LastStringValue(fieldThree) as fieldThree, LastIntegerValue(fieldFour) AS fieldFour, LastDoubleValue(fieldFive) AS fieldFive, LastStringValue(fieldSix) as fieldSix, LastIntegerValue(fieldSeven) AS fieldSeven, LastDoubleValue(fieldEight) AS fieldEight, LastStringValue(fieldNine) as fieldNine FROM myTable WHERE fieldOne = 1 GROUP BY id");
+            Table queryTable = tableEnv.sqlQuery("SELECT LastStringValue(transactionID), id, LastIntegerValue(fieldOne) AS fieldOne, LastDoubleValue(fieldTwo) AS fieldTwo, LastStringValue(fieldThree) as fieldThree, LastIntegerValue(fieldFour) AS fieldFour, LastDoubleValue(fieldFive) AS fieldFive, LastStringValue(fieldSix) as fieldSix, LastIntegerValue(fieldSeven) AS fieldSeven, LastDoubleValue(fieldEight) AS fieldEight, LastStringValue(fieldNine) as fieldNine FROM myTable WHERE fieldOne = 500 AND fieldFour = 5000 GROUP BY id");
 
             DataStream<Tuple2<Boolean, Row>> retractStream = tableEnv.toRetractStream(queryTable, Row.class);
             retractStream.map(new Mapper());
